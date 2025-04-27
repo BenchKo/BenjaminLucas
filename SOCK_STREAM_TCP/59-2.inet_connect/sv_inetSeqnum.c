@@ -1,4 +1,4 @@
-#define _BSD_SOURCE
+#define _DEFAULT_SOURCE
 
 #include <netdb.h>
 #include "is_seqnum.h"
@@ -28,56 +28,22 @@ int main(int argc, char* argv[]){
     if(argc > 1 && strcmp(argv[1], "--help") == 0)
         usageErr("%s [init-seq-num]\n", argv[0]);
     
-    seqNum = (argc > 1) ? getInt(argv[1], 0, "init-seq-num") : 0;
+    seqNum = (argc > 1) ? atoi(argv[1]) : 0;
     
-    if(signal(SIGPIPE, SIGINT) == SIG_ERR)
+    if(signal(SIGPIPE, SIG_IGN) == SIG_ERR)
         errExit("signal");
 
-    /* call getaddrinfo() to obtain a list of addresses that we can try to bind*/
-    memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_canonname = NULL;
-    hints.ai_addr = NULL;
-    hints.ai_next = NULL;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_flags = AI_PASSIVE | AI_NUMERICSERV;
-    /* wildcard ip und service ist numerisch*/
-
-    if(addrError = getaddrinfo(NULL, PORT_NUM, &hints, &result) != 0)
-        printf("getaddrinfo: %s\n", gai_strerror(addrError));
-    
-    /* walk through returned list until we find an adress structure that can be used to 
-        successfully create and bind a socket */
-    optval = 1;
-    for(rp = result; rp != NULL; rp = rp->ai_next){
-        lfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-        if( lfd == -1)
-            continue;       /* on error try next adress*/
-
-        if(setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1)
-            errExit("setsockopt");
-        
-        if(bind(lfd, rp->ai_addr, rp->ai_addrlen) == 0)
-            break;
-
-        /*bind failed close socket and try next address*/
-        close(lfd) ;
-
+   /* hier die inet funktion einfügen inetListen */
+    lfd = inetListen(PORT_NUM, BACKLOG, &addrlen);
+    if(lfd == -1){
+        perror("inetListen");
+        exit(EXIT_FAILURE);
     }
-    if(rp == NULL)
-        fatal("COuld not bind socket to any address\n");
 
-    if(listen(lfd, BACKLOG) == -1)
-        errExit("listem");
-    
-    freeaddrinfo(result);
-
+    printf("Server wartet auf eingehende Verbindungen...\n");
     for(;;){
-
-        addrlen = sizeof(struct sockaddr_storage);
         cfd = accept(lfd, (struct sockaddr* ) &claddr, &addrlen);
         if(cfd == -1){
-            errMsg("accept");
             continue;
         }
         if(getnameinfo( (struct sockaddr*) &claddr, addrlen, host, NI_MAXHOST, service, NI_MAXSERV, 0) == 0)

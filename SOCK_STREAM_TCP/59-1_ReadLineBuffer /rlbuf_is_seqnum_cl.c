@@ -10,7 +10,8 @@ int main(int argc, char* argv[]){
     ssize_t numRead;
     struct addrinfo hints;
     struct addrinfo *rp, *result;
-
+    struct ReadLineBuffer* rlbuf;
+    char extBuffer[MAX_EXT_BUF];
     if(argc < 2 || strcmp(argv[1], "--help") == 0)
         usageErr("%s server-host [sequence-len]\n", argv[0]);
     
@@ -27,10 +28,10 @@ int main(int argc, char* argv[]){
 
     if(getaddrinfo(argv[1], PORT_NUM, &hints, &result) != 0)
         errExit("getaddrinfo");
-    
+   
+        
     /* Walk through returned list until we find an adress structure that can be used 
     to successfully connect a socket  */
-
     for(rp = result; rp != NULL; rp = rp->ai_next){
         cfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
         if(cfd == -1)
@@ -41,27 +42,37 @@ int main(int argc, char* argv[]){
         /* if no break connection failed for this socket*/
         close(cfd);
     }
+
+
     if(rp == NULL)
         fatal("Could not connect socket to ANY address!\n");
     
-    /* send requested sequence length with terminating newline */
-
+    
+        /* send requested sequence length with terminating newline */
     reqLenStr = (argc > 2) ? argv[2] : "1";
 
     if(write(cfd, reqLenStr, strlen(reqLenStr)) != strlen(reqLenStr))
         fatal("partial/failed write (newline)");
+    
+    
     if(write(cfd, "\n", 1 ) != 1)
         fatal("Partial/failes write (newline)");
-
-    /* read and display sequence number returned bei Server*/
-    numRead = readLine(cfd, seqNumStr, INT_LEN);
-
+    
+    
+        /* read and display sequence number returned bei Server*/
+    readLineBufferInit(cfd, rlbuf);
+    
+    numRead = readLineBuffer(rlbuf, extBuffer, MAX_EXT_BUF);
+    printf("numread == %d\n", numRead);
+    
     if(numRead == 0)
         fatal("unexpected error");
+    
     else if(numRead == -1)
         errExit("readline");
     
-    printf("sequence number: %s", seqNumStr);
+    
+    printf("sequence number: %s\n", extBuffer);
     exit(EXIT_SUCCESS);
 
 
